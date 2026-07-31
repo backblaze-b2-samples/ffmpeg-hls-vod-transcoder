@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useId } from "react";
-import { useDropzone, type FileRejection } from "react-dropzone";
+import { useDropzone, type Accept, type FileRejection } from "react-dropzone";
 import { Upload, FileIcon } from "lucide-react";
 import { ACCEPTED_FILE_TYPES } from "@/lib/upload-file-types";
 
@@ -9,6 +9,14 @@ interface DropzoneProps {
   onFilesSelected: (files: File[]) => void;
   onFilesRejected: (rejections: FileRejection[]) => void;
   disabled?: boolean;
+  /** Reusable across features: the video Ingest form passes a video `accept`
+   *  map, a single-file constraint, and its own copy. Defaults keep the
+   *  original generic-file behaviour. */
+  accept?: Accept;
+  multiple?: boolean;
+  maxSize?: number;
+  idleTitle?: string;
+  idleDescription?: string;
 }
 
 const MAX_SIZE = 100 * 1024 * 1024; // 100MB
@@ -17,6 +25,11 @@ export function Dropzone({
   onFilesSelected,
   onFilesRejected,
   disabled,
+  accept = ACCEPTED_FILE_TYPES,
+  multiple = true,
+  maxSize = MAX_SIZE,
+  idleTitle = "Drag & drop files here, or click to browse",
+  idleDescription = "Max file size: 100 MB per file",
 }: DropzoneProps) {
   const descriptionId = useId();
   const onDrop = useCallback(
@@ -38,22 +51,22 @@ export function Dropzone({
   const { getRootProps, getInputProps, isDragActive } = useDropzone({
     onDrop,
     onDropRejected,
-    accept: ACCEPTED_FILE_TYPES,
-    maxSize: MAX_SIZE,
+    accept,
+    maxSize,
     disabled,
-    multiple: true,
+    multiple,
   });
 
   const active = isDragActive && !disabled;
-  let title = "Drag & drop files here, or click to browse";
-  let description = "Max file size: 100 MB per file";
+  let title = idleTitle;
+  let description = idleDescription;
 
   if (disabled) {
-    title = "Uploads in progress";
-    description = "New files can be added when the current queue finishes.";
+    title = "Upload in progress";
+    description = "Wait for the current upload to finish.";
   } else if (active) {
-    title = "Drop files here";
-    description = "Release to add files to the upload queue.";
+    title = "Drop to select";
+    description = "Release to choose this file.";
   }
 
   let stateClasses = "border-border hover:border-primary/60 hover:bg-muted/60";

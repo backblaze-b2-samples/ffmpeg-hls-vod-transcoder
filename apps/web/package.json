@@ -11,6 +11,7 @@
     "typecheck": "tsc --noEmit"
   },
   "dependencies": {
+    "@ffmpeg-hls-vod-transcoder/shared": "workspace:*",
     "@hookform/resolvers": "^5.2.2",
     "@radix-ui/react-accordion": "^1.2.12",
     "@radix-ui/react-checkbox": "^1.3.3",
@@ -24,10 +25,10 @@
     "@radix-ui/react-switch": "^1.2.6",
     "@tanstack/react-query": "^5.100.7",
     "@tanstack/react-table": "^8.21.3",
-    "@ffmpeg-hls-vod-transcoder/shared": "workspace:*",
     "class-variance-authority": "^0.7.1",
     "clsx": "^2.1.1",
     "cmdk": "^1.1.1",
+    "hls.js": "^1.6.16",
     "lucide-react": "^0.563.0",
     "next": "16.1.6",
     "next-themes": "^0.4.6",
