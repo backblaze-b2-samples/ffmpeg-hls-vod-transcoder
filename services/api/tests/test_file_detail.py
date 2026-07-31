@@ -114,7 +114,7 @@ async def test_detail_oversized_file_rejected_without_download(client, monkeypat
         files_service,
         "get_file_metadata",
         lambda key: _fake_metadata(
-            key, size_bytes=settings.max_file_size + 1
+            key, size_bytes=settings.max_detail_size + 1
         ),
     )
     monkeypatch.setattr(files_service, "get_object_bytes", _boom)

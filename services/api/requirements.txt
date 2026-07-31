@@ -11,6 +11,10 @@ pydantic-settings>=2.7.0
 boto3>=1.35.0
 Pillow>=11.0.0
 PyPDF2>=3.0.0
+# Bundled static FFmpeg build (includes libx264) so a fresh clone can transcode
+# without a system `brew/apt install ffmpeg`. repo/ffmpeg_runner.py resolves the
+# binary via imageio_ffmpeg.get_ffmpeg_exe().
+imageio-ffmpeg>=0.5.1
 
 # Dev / quality
 ruff>=0.8.0

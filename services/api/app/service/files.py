@@ -125,7 +125,7 @@ def get_file_detail(key: str) -> FileMetadataDetail:
     object on demand and re-runs the same `extract_metadata()` used at upload.
 
     It buffers the whole object in memory, so we `head` first to reject objects
-    above `max_file_size` before downloading. Raises FileKeyError (invalid key),
+    above `max_detail_size` before downloading. Raises FileKeyError (invalid key),
     FileNotFoundServiceError (missing / deleted mid-read), or
     FileTooLargeServiceError (over the ceiling).
     """
@@ -133,10 +133,10 @@ def get_file_detail(key: str) -> FileMetadataDetail:
     metadata = get_file_metadata(key)
     if not metadata:
         raise FileNotFoundServiceError()
-    if metadata.size_bytes > settings.max_file_size:
+    if metadata.size_bytes > settings.max_detail_size:
         raise FileTooLargeServiceError(
             "File too large for detailed metadata. "
-            f"Max size: {humanize_bytes(settings.max_file_size)}"
+            f"Max size: {humanize_bytes(settings.max_detail_size)}"
         )
     data = get_object_bytes(key)
     return extract_metadata(

@@ -2,11 +2,17 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    b2_endpoint: str = "https://s3.us-west-004.backblazeb2.com"
-    b2_key_id: str = ""
+    # --- Backblaze B2 (S3-compatible) — Standard B2_* env names ---
+    # The endpoint is derived from the region so operational code never hardcodes
+    # a region string; a user only sets B2_REGION. The default below is a startup
+    # fallback for tests and cold clones — real deployments set B2_REGION in .env.
+    b2_application_key_id: str = ""
     b2_application_key: str = ""
     b2_bucket_name: str = ""
-    b2_public_url: str = ""
+    b2_region: str = "us-east-005"
+    # Optional. Only used to build public object URLs for a public bucket; the
+    # app runs fine without it (playback is API-proxied — see runtime/videos.py).
+    b2_public_url_base: str = ""
 
     api_port: int = 8000
     # Interactive API docs (/docs, /redoc, /openapi.json). On by default for
@@ -23,13 +29,34 @@ class Settings(BaseSettings):
     # listing each one. NEVER ship this to production.
     api_cors_origin_regex: str = ""
 
-    # Upload limits
-    max_file_size: int = 100 * 1024 * 1024  # 100MB
+    # --- VOD / transcode pipeline ---
+    # All video assets live under this prefix so the scoped Videos Library and
+    # prefix-scoped delete never touch unrelated bucket data.
+    video_prefix: str = "videos/"
+    # HLS target segment duration (seconds). 4s is a common ABR default.
+    hls_segment_seconds: int = 4
+    # Default quality ladder preset applied when none is chosen (fast demo run).
+    default_ladder: str = "720p"
+    # Max source upload size. Video is streamed to a temp file, never buffered
+    # whole in RAM, but this caps a single ingest. ~200 MB by default.
+    max_source_size: int = 200 * 1024 * 1024
+    # Ceiling for the kept Files browser's on-demand detail view, which buffers
+    # the whole object in memory to re-extract metadata. Independent of the video
+    # ingest cap above. ~200 MB by default.
+    max_detail_size: int = 200 * 1024 * 1024
+    # Optional overrides for the ffmpeg/ffprobe binaries. Empty means resolve the
+    # bundled static ffmpeg from imageio-ffmpeg (libx264 included, no system
+    # install). Set to an absolute path only to use a different binary.
+    ffmpeg_binary: str = ""
+    ffprobe_binary: str = ""
+    # Auto-detect a hardware encoder (VideoToolbox on macOS / NVENC on CUDA) and
+    # fall back to CPU libx264. Never hard-requires a GPU — CPU is always viable.
+    hwaccel_autodetect: bool = True
 
     # Optional confinement for key-addressed reads/deletes. Empty by default so
     # the by-key routes accept any key shape (they deliberately support nested
     # folders and reserved-word segments). Point a fork at a bucket shared with
-    # other data? Set to e.g. "uploads/" to restrict all key ops to app uploads.
+    # other data? Set to e.g. "videos/" to restrict all key ops to app data.
     allowed_key_prefix: str = ""
 
     # Full-bucket listing cache (repo/list_cache.py). Both /files and
@@ -49,8 +76,8 @@ class Settings(BaseSettings):
     # documented in docs/RELIABILITY.md; horizontal scaling needs a shared
     # store (e.g. Redis). Writes/downloads get the tighter cap.
     rate_limit_per_minute: int = 120
-    # Covers uploads, deletes, downloads and previews — kept generous enough
-    # that a normal browsing/upload session doesn't trip it.
+    # Covers ingest, deletes, downloads and previews — kept generous enough
+    # that a normal browsing/ingest session doesn't trip it.
     rate_limit_write_per_minute: int = 60
 
     # Small durable counters (downloads, etc). Relative paths resolve against
@@ -66,6 +93,11 @@ class Settings(BaseSettings):
     download_count_file: str = ".data/download_count.json"
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+
+    @property
+    def endpoint(self) -> str:
+        """S3 endpoint derived from the configured region."""
+        return f"https://s3.{self.b2_region}.backblazeb2.com"
 
     @property
     def cors_origins(self) -> list[str]:
