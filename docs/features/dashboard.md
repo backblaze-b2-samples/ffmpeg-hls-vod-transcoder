@@ -1,57 +1,52 @@
-<!-- last_verified: 2026-07-28 -->
+<!-- last_verified: 2026-07-31 -->
 # Feature: Dashboard
 
 ## Purpose
-Provide an at-a-glance overview of file storage usage and recent upload activity.
+Provide an at-a-glance overview of transcode activity and the source → rendition write-amplification that makes self-hosted VOD on B2 economical.
 
 ## Used By
 - UI: `/` page (dashboard home)
-- API: `GET /files/stats`, `GET /files`, `GET /files/stats/activity`
+- API: `GET /videos/stats`
 
 ## Core Functions
-- `apps/web/src/components/dashboard/stats-cards.tsx` — 4 stat cards, plus the on-screen loading notice while the bucket scan runs
-- `apps/web/src/components/dashboard/recent-uploads-table.tsx` — last 10 uploads
-- `apps/web/src/components/dashboard/upload-chart.tsx` — bar chart of uploads per day
-- `apps/web/src/lib/api-client.ts` — `getFileStats()`, `getFiles()`, `getUploadActivity()`
-- `services/api/app/runtime/files.py` — `GET /files/stats` handler
-- `services/api/app/service/files.py` — `get_stats()` business logic
-- `services/api/app/repo/b2_client.py` — `get_upload_stats()` data access
-- `services/api/app/repo/list_cache.py` — the shared bucket listing both `/files/stats` and `/files` read, so the dashboard and the file browser never scan twice
-- `apps/web/src/components/common/loading-notice.tsx` — visible, escalating wait copy
+- `apps/web/src/components/dashboard/transcode-stats-cards.tsx` — 4 stat cards (videos, renditions, source → rendition bytes, amplification)
+- `apps/web/src/components/dashboard/recent-transcodes-table.tsx` — recent videos with status + amplification, linking to each detail page
+- `apps/web/src/components/video/status-badge.tsx` — shared transcode-status badge
+- `apps/web/src/lib/queries.ts` — `useVideoStats()` (polls every 5s)
+- `services/api/app/runtime/videos.py` — `GET /videos/stats` handler
+- `services/api/app/service/video.py` — `get_transcode_stats()` aggregation
+- `services/api/app/repo/video_store.py` — `list_prefix()` + `read_json()` over the `videos/` manifests
 
 ## Canonical Files
-- Dashboard page layout: `apps/web/src/components/dashboard/stats-cards.tsx`
-- Stats service logic: `services/api/app/service/files.py`
+- Dashboard cards pattern: `apps/web/src/components/dashboard/transcode-stats-cards.tsx`
+- Stats service logic: `services/api/app/service/video.py`
 
 ## Inputs
 - None (dashboard loads data automatically)
 
 ## Outputs
-- `GET /files/stats` → `UploadStats` (total_files, total_size_bytes, total_size_human, uploads_today, total_downloads)
-- `GET /files` (limit 10) → `FileMetadata[]` for recent uploads table (sorted newest-first)
-- `GET /files/stats/activity?days=7` → `DailyUploadCount[]` for chart (server-side aggregation)
+- `GET /videos/stats` → `TranscodeStats`: `total_videos`, `ready_videos`, `transcoding_videos`, `failed_videos`, `total_renditions`, `source_bytes(_human)`, `rendition_bytes(_human)`, `amplification_factor`, and `recent` (the 5 newest `VideoAsset`s)
 
 ## Flow
-- Page loads → three parallel API calls (stats, recent files, upload activity), all served from one cached bucket listing
-- Stats needed ~8.3s to replace the skeletons on a 16k-object bucket, so: the API warms that listing at startup and serves it stale-while-revalidate (only the very first scan after boot can block), and the cards state the wait in words while it runs instead of showing four silent placeholders
-- Stats cards display total files, storage used, uploads today, total downloads
-- Upload chart displays server-aggregated daily counts for last 7 days as bar chart after activity data is known
-- Recent uploads table shows last 10 files with filename, size, type, date, status badge. Each filename is a link to `/files?preview=<key>`, which opens that file's preview in the browser — the rows used to be inert text with no role, tabindex or handler, so the "click a file to preview it" gesture `/files` teaches did nothing here
+- Page loads → `useVideoStats` fetches `GET /videos/stats`, which lists every `asset.json` under `videos/` and aggregates counts, bytes, and the fleet-wide amplification factor
+- Stat cards display total videos, total renditions, source → rendition bytes, and the amplification multiple
+- The recent-transcodes table shows the newest videos with a status badge and per-video amplification; each title links to `/videos/{id}`
+- The query re-polls every 5s so the numbers track in-flight jobs without a manual refresh
 
 ## Edge Cases
-- API unavailable → error states with retry where supported; activity chart does not show a false zero state while loading
-- No files uploaded → empty chart message, empty table message
-- Large file count → stats endpoint paginates through all objects using `ContinuationToken`; the result is cached, so the cost is paid once (at startup) rather than per page view
-- Bucket changed by something other than this app → numbers can lag by up to `LIST_CACHE_TTL_SECONDS` (default 300s). The app's own uploads/deletes invalidate the cache, so they are never stale
+- API unavailable → cards and table show inline error states with retry
+- No videos yet → cards read `0` / `—`; the table shows an empty state
+- Fleet amplification with zero source bytes → `null`, rendered as `—` (never a divide-by-zero)
+- Many videos → `get_transcode_stats` reads one manifest per video; fine for the demo scale (no queue/DB by design)
 
 ## UX States
-- Loading: an on-screen "Loading bucket stats…" notice above the cards (escalating at 4s and 12s), with skeleton placeholders for cards, table, and upload activity chart
-- Empty: "No files uploaded yet" / "No upload data available yet"
-- Loaded: populated cards, chart, table
+- Loading: skeleton cards + skeleton table rows
+- Empty: `0`/`—` cards and a "No transcodes yet" table
+- Loaded: populated cards and recent-transcodes table
 
 ## Verification
-- Test files: `services/api/tests/test_upload_activity.py`, `services/api/tests/test_recent_files.py`, `services/api/tests/test_list_cache.py`, `apps/web/src/lib/loading-progress.test.ts`
-- Required cases: stats with files, stats with empty bucket, API error fallback, cached listing reused across stats and listing calls, loading copy escalating at its thresholds
+- Test files: `services/api/tests/test_video_pipeline.py`
+- Required cases: amplification math (incl. the divide-by-zero → None case), stats aggregation reflects manifest states
 - Focused verify command: `pnpm test:api`
 - Default pre-PR verify command: `pnpm verify`
 - Full local verify command: `pnpm verify:full` when the E2E/live prerequisites in [Dev Workflows](../dev-workflows.md#commands) are available
@@ -59,4 +54,5 @@ Provide an at-a-glance overview of file storage usage and recent upload activity
 
 ## Related Docs
 - [ARCHITECTURE.md](../../ARCHITECTURE.md)
+- [Transcode Pipeline](transcode-pipeline.md)
 - [App Workflows](../app-workflows.md)

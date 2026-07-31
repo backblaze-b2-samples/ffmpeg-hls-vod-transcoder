@@ -3,18 +3,26 @@
 
 User journeys inside the application.
 
-## Upload Files
+## Ingest a Video
 
-- User navigates to `/upload`
-- Drops or selects files in the dropzone
-- Client validates file size (max 100MB) and type
-- A determinate progress bar tracks the bytes leaving the browser; once they are all sent the row switches to "Storing in B2..." with an *indeterminate* sweeping bar for the server-side phase (put_object + checksums + metadata). That phase has no percentage to report — measured at 25s on a 54MB file — and a bar parked at a full 100% read as finished-but-stuck
-- On success: toast notification, green checkmark, and a "View in Files" link through to the browser
-- On failure: red status icon with error message
-- User can clear completed uploads
-- The queue lives in an app-wide provider: navigating to another page keeps the upload running, shows an "Uploading N files" indicator in the header, and keeps the duplicate-upload guard armed
-- Reloading or closing mid-upload asks for confirmation first; if the upload dies anyway, the next load says which file didn't finish
-- See: [File Upload](features/file-upload.md)
+- User navigates to `/upload` (Ingest)
+- Drops or selects one source video (MP4 / MOV / WebM / MKV) in the dropzone
+- Picks a quality ladder from a `Select` (default "Up to 720p", with a hint that 720p is a fast demo run) and an optional title
+- A determinate progress bar tracks the source bytes leaving the browser
+- On success: a toast, and a redirect to the video's detail page, which shows the transcoding state and updates itself
+- The transcode runs in the background on the server (FFmpeg) — the user does not wait on the page for it
+- On failure (oversize, unsupported container, spoofed bytes): a toast with the reason; the form stays editable
+- See: [Video Ingest](features/video-ingest.md), [Transcode Pipeline](features/transcode-pipeline.md)
+
+## Watch and Manage Videos
+
+- User navigates to `/videos` — a grid of cards, each with a sprite thumbnail, a status badge, and its amplification factor
+- Opening a card routes to `/videos/[id]`, which polls until the transcode is `ready` or `failed`
+- On `ready`: an adaptive hls.js player (native HLS on Safari) streams the master playlist through the API proxy from B2; a rendition table lists each rung's resolution/bitrate/segments/size; an amplification card shows source vs rendition bytes
+- **Rename**: a dialog opens pre-filled with the current title; saving updates the manifest
+- **Re-transcode**: a dialog with a ladder `Select` re-runs FFmpeg on the stored source (e.g. to add a 1080p rung)
+- **Delete**: a confirmation removes the entire `videos/{id}/` prefix and returns to the library
+- See: [Video Library](features/video-library.md)
 
 ## Browse and Manage Files
 
@@ -34,12 +42,10 @@ User journeys inside the application.
 ## View Dashboard
 
 - User navigates to `/` (home)
-- Three parallel API calls load: stats, recent files, upload activity — all served from one shared bucket listing that the API warms at startup
-- While stats load, the page states it in words above the cards rather than showing silent skeletons
-- Stats cards show: total files, storage used, uploads today, total downloads
-- Upload chart shows last 7 days of upload activity as bar chart
-- Recent uploads table shows last 10 files with filename, size, type, date. Each filename links to that file's preview on `/files` — `/files` teaches "click a file to preview it", so the same gesture here has to answer rather than being inert text
-- Empty state: "No files uploaded yet" messages
+- `GET /videos/stats` loads and the cards show: total videos, total renditions, source → rendition bytes, and the fleet-wide write-amplification multiple
+- The recent-transcodes table lists the newest videos with a status badge and per-video amplification; each title links through to its detail page
+- The stats re-poll every few seconds so in-flight transcodes surface without a refresh
+- Empty state: `0`/`—` cards and a "No transcodes yet" table
 - See: [Dashboard](features/dashboard.md)
 
 ## Change Preferences

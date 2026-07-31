@@ -2,15 +2,13 @@
 # Feature: Metadata Extraction
 
 ## Purpose
-Extract rich metadata from uploaded files and surface it both at upload time and for already-stored objects.
+Extract rich metadata (checksums, image dimensions/EXIF, PDF info) for an already-stored bucket object, on demand, for the Files browser detail view.
 
 ## Used By
-- API: `POST /upload` (called after B2 upload) — returns the full `FileMetadataDetail` in the upload response
 - API: `GET /files-by-key/detail?key=…` — recomputes `FileMetadataDetail` on demand for an already-stored object
-- UI: the Upload page renders it via `FileMetadataPanel`, behind a per-file "View details" disclosure on each completed upload (`apps/web/src/components/upload/upload-progress.tsx`)
 - UI: the Files browser preview dialog renders it via `FileMetadataPanel`, behind a "Detailed metadata" disclosure that fetches lazily on expand (`apps/web/src/components/files/file-preview.tsx`)
 
-> Note: extraction is **not** persisted. At upload it runs from the in-memory bytes and is returned inline. For an already-stored object the `/files-by-key/detail` endpoint re-downloads the object and re-runs extraction on demand — so the checksums/EXIF/PDF fields cost a full object download and are size-guarded (objects above `max_file_size` are refused with 413). The cheap `GET /files-by-key/metadata` (a `head_object`) still returns only the core fields (key, size, type, uploaded-at). Persisting metadata at upload to avoid the re-download is tracked in the tech-debt tracker.
+> Note: extraction is **not** persisted. The `/files-by-key/detail` endpoint re-downloads the object and re-runs extraction on demand — so the checksums/EXIF/PDF fields cost a full object download and are size-guarded (objects above `max_detail_size` are refused with 413). The cheap `GET /files-by-key/metadata` (a `head_object`) still returns only the core fields (key, size, type, uploaded-at).
 
 ## Core Functions
 - `services/api/app/service/metadata.py` — `extract_metadata()`, `_extract_image_metadata()`, `_extract_pdf_metadata()`, `_image_warning()`
@@ -71,4 +69,4 @@ Extract rich metadata from uploaded files and surface it both at upload time and
 
 ## Related Docs
 - [ARCHITECTURE.md](../../ARCHITECTURE.md)
-- [File Upload](file-upload.md)
+- [File Browser](file-browser.md)

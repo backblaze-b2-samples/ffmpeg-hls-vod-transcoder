@@ -12,7 +12,10 @@ This is the authoritative control surface for all coding agents. Read this first
 
 ```
 apps/web/          Next.js 16 frontend (App Router, Tailwind v4, shadcn/ui)
+                   components/video/* = Ingest, library, hls.js player, dialogs
 services/api/      FastAPI backend (layered: types/config/repo/service/runtime)
+                   repo/ffmpeg_runner.py + repo/sprite.py = FFmpeg subprocess adapter
+                   service/video.py = transcode orchestration; runtime/videos.py = routes + HLS proxy
 packages/shared/   Shared TypeScript types
 docs/              System of record (features, workflows, security, reliability)
 docs/exec-plans/   Execution plans and tech debt tracker
@@ -25,9 +28,12 @@ When this repo is used as the foundation for a new app, the following pieces are
 
 **Keep as-is (do not strip, rename, or replace)**
 - **UI kit / design system.** `apps/web/src/components/ui/` (shadcn primitives), the design tokens in `apps/web/src/app/globals.css`, and the `/design` reference page. Build new screens with these primitives; never edit the generated `components/ui/` files directly. Restyling happens through tokens in `globals.css`.
-- **File Explorer.** `/files` route, `apps/web/src/app/files/`, and `apps/web/src/components/files/`. The Files sidebar entry in `apps/web/src/components/layout/app-sidebar.tsx` stays.
-- **Upload.** `/upload` route, `apps/web/src/app/upload/`, and `apps/web/src/components/upload/`. The Upload sidebar entry stays.
-- The sidebar nav itself (Dashboard, Upload, Files, Settings, plus the Design System utility link).
+- **File Explorer.** `/files` route, `apps/web/src/app/files/`, and `apps/web/src/components/files/`. The Files sidebar entry in `apps/web/src/components/layout/app-sidebar.tsx` stays — it shows the fanned-out rendition objects.
+
+**App surfaces (this VOD app)**
+- **Ingest.** `/upload` route is the video Ingest create form (`components/video/ingest-form.tsx`); the reusable `components/upload/dropzone.tsx` is retargeted to video containers.
+- **Videos.** `/videos` (library grid) and `/videos/[id]` (hls.js player + rename / re-transcode / delete) in `components/video/`. See [docs/features/video-library.md](docs/features/video-library.md).
+- The sidebar nav (Dashboard, Ingest, Videos, Files, Settings, plus the Design System utility link).
 
 **Adapt to the new use case**
 - **Dashboard.** `/` route and `apps/web/src/components/dashboard/` (stats cards, upload chart, recent uploads table) are illustrative defaults. Replace them with metrics, charts, and tables that reflect what the new app actually does (e.g. transcripts processed, embeddings indexed, classifications run). New aggregations must flow through the same `runtime -> service -> repo` layering and be exposed via TanStack Query hooks in `apps/web/src/lib/queries.ts` — no bare `useEffect + fetch`.
@@ -187,7 +193,7 @@ If documentation and implementation conflict, update docs in the same PR. Docume
 | Topic | Location |
 |-------|----------|
 | System layout, data flows, boundaries | [ARCHITECTURE.md](ARCHITECTURE.md) |
-| Feature docs | [docs/features/](docs/features/) |
+| Feature docs | [docs/features/](docs/features/) — [video-ingest](docs/features/video-ingest.md), [transcode-pipeline](docs/features/transcode-pipeline.md), [video-library](docs/features/video-library.md), [dashboard](docs/features/dashboard.md), [file-browser](docs/features/file-browser.md), [metadata-extraction](docs/features/metadata-extraction.md) |
 | User journeys | [docs/app-workflows.md](docs/app-workflows.md) |
 | Engineering workflows and testing | [docs/dev-workflows.md](docs/dev-workflows.md) |
 | Security principles | [docs/SECURITY.md](docs/SECURITY.md) |
