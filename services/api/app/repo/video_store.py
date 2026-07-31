@@ -129,8 +129,7 @@ def iter_object(key: str, chunk_size: int = 256 * 1024) -> Iterator[bytes]:
     handle = get_object_stream(key)
     body = handle["body"]
     try:
-        for chunk in body.iter_chunks(chunk_size):
-            yield chunk
+        yield from body.iter_chunks(chunk_size)
     finally:
         body.close()
 

@@ -6,14 +6,14 @@ response, the library row, and the durable record — one source of truth.
 """
 
 from datetime import datetime
-from enum import Enum
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
 from app.types.formatting import humanize_bytes
 
 
-class LadderPreset(str, Enum):
+class LadderPreset(StrEnum):
     """Finite quality-ladder presets (a *ceiling*, not a single rendition).
 
     A preset expands into every rung at or below its height, so "720p" yields
@@ -26,7 +26,7 @@ class LadderPreset(str, Enum):
     P1080 = "1080p"
 
 
-class TranscodeStatus(str, Enum):
+class TranscodeStatus(StrEnum):
     TRANSCODING = "transcoding"
     READY = "ready"
     FAILED = "failed"
@@ -82,7 +82,7 @@ class VideoAsset(BaseModel):
     rendition_bytes: int = 0
     rendition_bytes_human: str = "0 B"
     # Storage write-amplification: rendition_bytes / source_size_bytes. The
-    # headline "why B2" metric — one source upload fans out to N× storage.
+    # headline "why B2" metric — one source upload fans out to N-times storage.
     amplification_factor: float | None = None
     master_playlist_key: str | None = None
     thumbnail_key: str | None = None
@@ -127,7 +127,7 @@ def compute_amplification(source_bytes: int, rendition_bytes: int) -> float | No
     """Rendition bytes as a multiple of source bytes, rounded to 2 dp.
 
     None when there is no source to compare against, so the UI shows "—"
-    rather than a divide-by-zero or a misleading 0×.
+    rather than a divide-by-zero or a misleading 0x.
     """
     if source_bytes <= 0:
         return None
