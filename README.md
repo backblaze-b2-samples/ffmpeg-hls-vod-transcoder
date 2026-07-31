@@ -8,7 +8,7 @@ A self-hosted **video-on-demand (VOD) transcoding pipeline** backed by **[Backbl
 **What you get out of the box:**
 - Source ingest to B2 with container + magic-byte validation
 - Local FFmpeg HLS ladder transcode (CPU `libx264` default; optional hardware-encoder autodetect, never GPU-required)
-- Thumbnail sprite sheet + WebVTT for scrub preview
+- Thumbnail sprite sheet + WebVTT thumbnail track — the standard HLS scrub-preview artifacts, ready for scrub-preview-capable / CDN players; the bundled hls.js demo player uses `sprite.jpg` as its poster frame
 - Adaptive playback (hls.js, with native-HLS Safari fallback) via an API HLS proxy that streams straight from B2
 - Full video lifecycle: library, detail/play, rename, re-transcode, delete (prefix-scoped)
 - A full-bucket File Browser so you can see the fanned-out rendition objects directly

@@ -19,6 +19,7 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { ErrorState } from "@/components/ui/error-state";
+import { Progress } from "@/components/ui/progress";
 import { Skeleton } from "@/components/ui/skeleton";
 import { useDeleteVideo, useVideo } from "@/lib/queries";
 import { HlsPlayer } from "./hls-player";
@@ -110,10 +111,22 @@ export function VideoDetail({ videoId }: { videoId: string }) {
       )}
 
       {video.status === "transcoding" && (
-        <div className="flex aspect-video w-full items-center justify-center rounded-md border border-border bg-muted">
+        <div className="flex aspect-video w-full flex-col items-center justify-center gap-4 rounded-md border border-border bg-muted px-8">
           <div className="flex items-center gap-2 text-sm text-muted-foreground">
             <Loader2 className="h-4 w-4 animate-spin" aria-hidden="true" />
-            Transcoding… this view updates automatically.
+            {video.stage
+              ? `Transcoding — ${video.stage}`
+              : "Transcoding…"}
+          </div>
+          <div className="w-full max-w-md space-y-1.5">
+            <Progress
+              value={Math.round((video.progress ?? 0) * 100)}
+              aria-label="Transcode progress"
+            />
+            <p className="text-center text-xs tabular-nums text-muted-foreground">
+              {Math.round((video.progress ?? 0) * 100)}% · this view updates
+              automatically
+            </p>
           </div>
         </div>
       )}

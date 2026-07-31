@@ -30,13 +30,11 @@ const REQUIRED_PNPM_MAJOR = 9;
 // .env.example. Keep in sync with services/api/main.py REQUIRED_B2_SETTINGS
 // and PLACEHOLDER_VALUES.
 const REQUIRED_B2_VARS = [
-  "B2_ENDPOINT",
-  "B2_KEY_ID",
+  "B2_APPLICATION_KEY_ID",
   "B2_APPLICATION_KEY",
   "B2_BUCKET_NAME",
 ];
 const PLACEHOLDERS = new Set([
-  "your_b2_endpoint",
   "your_key_id",
   "your_application_key",
   "your-bucket-name",

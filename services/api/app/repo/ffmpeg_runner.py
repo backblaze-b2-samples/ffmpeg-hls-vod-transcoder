@@ -23,6 +23,7 @@ import os
 import re
 import shutil
 import subprocess
+from collections.abc import Callable
 from dataclasses import dataclass, field
 from functools import lru_cache
 
@@ -202,6 +203,7 @@ def transcode_hls(
     rungs: list[tuple[str, int, int, int]],
     source_width: int | None,
     source_height: int | None,
+    on_rung_done: Callable[[int, int], None] | None = None,
 ) -> list[RungOutput]:
     """Fan `source_path` into an HLS ladder under `out_dir/hls/`.
 
@@ -212,15 +214,23 @@ def transcode_hls(
     `rungs` are (name, height, video_kbps, audio_kbps). A rung taller than the
     source is dropped — the runner never upscales. Returns one `RungOutput` per
     rung actually produced. Raises RuntimeError if ffmpeg fails on a rung.
+
+    `on_rung_done(done, total)` — if given — is called after each rung finishes
+    encoding, so the caller can persist determinate progress. `total` counts
+    only the rungs that will actually be produced (upscale rungs excluded).
     """
     encoder = select_video_encoder()
     hls_dir = os.path.join(out_dir, "hls")
     os.makedirs(hls_dir, exist_ok=True)
     produced: list[RungOutput] = []
 
-    for name, height, video_kbps, audio_kbps in rungs:
-        if source_height and height > source_height:
-            continue  # never upscale
+    # Pre-filter upscale rungs so `total` reflects what actually gets encoded.
+    applicable = [
+        rung for rung in rungs if not (source_height and rung[1] > source_height)
+    ]
+    total = len(applicable)
+
+    for name, height, video_kbps, audio_kbps in applicable:
         width = (
             _even(round(source_width * height / source_height))
             if source_width and source_height
@@ -261,6 +271,8 @@ def transcode_hls(
                 segment_paths=segments,
             )
         )
+        if on_rung_done is not None:
+            on_rung_done(len(produced), total)
 
     if not produced:
         raise RuntimeError("no rungs produced — source shorter than every rung")

@@ -71,3 +71,10 @@ follow-up; none blocks the core flow.
 | Custom `FileNotFoundError` shadowed the built-in | Renamed to `FileNotFoundServiceError` |
 | Dropzone accepted any file type client-side | `accept` allow-list mirroring backend `ALLOWED_TYPES` (tested for drift) |
 | No test harness for feature specs | pytest suite across upload, files, activity, errors, validation, rate limit, pagination |
+
+## 2026-07-31 — verify
+- Ingest form (/upload) — Quality-ladder Select defaults to "Up to 720p" (helper: "720p is a fast, representative demo run") → the default omits the 1080p rung, so the full 360p/720p/1080p ladder needs a manual switch to "Up to 1080p" (shot .local/verify/A/02-ingest-form.png)
+- Video detail (/videos/[id]) player — `<video>` poster is set to the raw `thumbs/sprite.jpg` contact-sheet, so it renders as a tiled filmstrip letterboxed in the black player; the library grid object-cover-crops the same sprite to a clean frame, so the two surfaces disagree visually (shot .local/verify/B/07-detail-ready.png, .local/verify/C/r1-03-detail-ready.png)
+- Ingest form (/upload) — ladder helper text is hard-coded to "720p is a fast, representative demo run…" regardless of the selected preset; with "Up to 1080p" chosen it still names 720p (shot .local/verify/B/03a-upload-progress.png)
+- Dashboard (/) + detail — default-run write-amplification reads 0.73× (renditions < source for an efficiently-encoded source at the default ladder); on-screen copy only claims amplification is "economical" (no explicit 3–5× pitch on-screen, per adversarial gate), but the sub-1× headline still under-sells the write-amplification story a heavier source/larger default would show (shot .local/verify/C/dash-01-home.png, .local/verify/C/r1-03-detail-ready.png)
+- Video detail (/videos/[id]) — the top breadcrumb shows the raw asset id (e.g. "Dcd61b6a9b34") instead of the video title; the page <h1> does show the full title so orientation isn't lost, but the breadcrumb reads as a cryptic hash (shot .local/verify/A2/05-post-submit-detail.png)

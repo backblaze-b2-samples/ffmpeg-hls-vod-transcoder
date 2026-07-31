@@ -58,6 +58,16 @@ def _now() -> datetime:
     return datetime.now(UTC)
 
 
+def _publish_progress(asset: VideoAsset, stage: str, progress: float) -> None:
+    """Persist progress (0..1) + stage on the manifest so the polling detail page
+    shows a determinate bar. Best-effort: a failed write never aborts the job."""
+    asset.progress = round(progress, 3)
+    asset.stage = stage
+    asset.updated_at = _now()
+    with contextlib.suppress(Exception):
+        video_store.write_json(_manifest_key(asset.id), asset.model_dump())
+
+
 # --- CRUD ------------------------------------------------------------------
 
 
@@ -84,6 +94,8 @@ def create_video(
         id=video_id,
         title=(title or "").strip() or safe_name,
         status=TranscodeStatus.TRANSCODING,
+        progress=0.0,
+        stage="queued",
         ladder=ladder,
         source_key=source_key,
         source_filename=safe_name,
@@ -140,6 +152,8 @@ def retranscode(video_id: str, ladder: LadderPreset) -> VideoAsset:
     if not asset:
         raise VideoNotFoundError(video_id)
     asset.status = TranscodeStatus.TRANSCODING
+    asset.progress = 0.0
+    asset.stage = "queued"
     asset.ladder = ladder
     asset.renditions = []
     asset.rendition_bytes = 0
@@ -212,16 +226,27 @@ def _transcode_into(asset: VideoAsset, workdir: str) -> None:
     os.makedirs(os.path.dirname(source_local), exist_ok=True)
     video_store.download_to(asset.source_key, source_local)
 
+    _publish_progress(asset, "probing source", 0.05)
     probe = ffmpeg_runner.probe(source_local)
+
+    def _on_rung_done(done: int, total: int) -> None:
+        # Rung fraction maps into the encode band [0.10, 0.85].
+        pct = 0.1 + 0.75 * (done / total if total else 1.0)
+        _publish_progress(asset, f"encoding rendition {done}/{total}", pct)
+
     outputs = ffmpeg_runner.transcode_hls(
-        source_local, workdir, rungs_for(asset.ladder), probe.width, probe.height
+        source_local, workdir, rungs_for(asset.ladder), probe.width, probe.height,
+        on_rung_done=_on_rung_done,
     )
+    _publish_progress(asset, "generating thumbnails", 0.9)
     sprite_result = sprite.generate_sprite(source_local, workdir, probe.duration_seconds)
 
     rendition_bytes = _upload_derived(workdir, prefix)
     renditions = [_rendition_for(out, prefix) for out in outputs]
 
     asset.status = TranscodeStatus.READY
+    asset.progress = 1.0
+    asset.stage = "ready"
     asset.duration_seconds = probe.duration_seconds
     asset.width, asset.height = probe.width, probe.height
     asset.renditions = renditions

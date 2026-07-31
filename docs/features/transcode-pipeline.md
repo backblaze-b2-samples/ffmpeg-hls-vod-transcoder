@@ -25,7 +25,8 @@ Fan one source video into a multi-bitrate HLS ladder + thumbnail sprite with loc
 
 ## Outputs
 - Per-video B2 artifacts: `hls/master.m3u8`, `hls/{rung}/index.m3u8`, `hls/{rung}/seg_*.ts`, `thumbs/sprite.jpg`, `thumbs/sprite.vtt`
-- Manifest updated to `ready` with `renditions[]`, `rendition_bytes`, `amplification_factor`, `master_playlist_key`, `thumbnail_key`, `duration_seconds`, `width`/`height` — or to `failed` + `error`
+- Manifest updated to `ready` with `renditions[]`, `rendition_bytes`, `amplification_factor`, `master_playlist_key`, `thumbnail_key`, `duration_seconds`, `width`/`height`, `progress` = 1.0, `stage` = `"ready"` — or to `failed` + `error`
+- While the job runs it also writes a determinate `progress` (0.0..1.0) + a coarse `stage` label onto the manifest, so the polling detail page renders a real progress bar instead of an indeterminate spinner
 
 ## Flow
 - The worker reads the manifest, then clears any prior `hls/` + `thumbs/` objects (so a re-transcode leaves no orphan segments — each `delete_prefix` is scoped to `videos/{id}/hls/` or `.../thumbs/`)
@@ -33,8 +34,9 @@ Fan one source video into a multi-bitrate HLS ladder + thumbnail sprite with loc
 - `probe()` reads duration + width/height via `ffprobe` if present, otherwise by parsing `ffmpeg -i` stderr — so `ffprobe` is never a hard dependency
 - `transcode_hls()` expands the ladder preset into every rung at or below its height, and for each rung runs one FFmpeg invocation that emits `hls/{rung}/index.m3u8` + `seg_*.ts`. A rung taller than the source is dropped — the encoder never upscales
 - A `master.m3u8` is written with relative variant paths, so the B2 layout mirrors the playlist references 1:1 and the [HLS proxy](video-library.md) needs no rewriting
-- `generate_sprite()` samples frames into `thumbs/sprite.jpg` + a WebVTT cue map (best-effort; a sprite failure does not fail the job)
+- `generate_sprite()` samples frames into `thumbs/sprite.jpg` + a WebVTT cue map (best-effort; a sprite failure does not fail the job). These are the standard HLS thumbnail-track artifacts that scrub-preview-capable / CDN players consume; the bundled hls.js demo player uses `sprite.jpg` as the `<video>` poster rather than a hover-scrub overlay, so the artifacts are produced and stored but the minimal player does not render a scrub-preview UI
 - Every derived file is uploaded preserving its relative path under `videos/{id}/`; `rendition_bytes` totals the derived bytes
+- As the job advances it persists a determinate `progress` (0.0..1.0) + `stage` label onto the manifest — probe (0.05) → per-rung encode (rungs_done / rungs_total mapped into 0.10..0.85) → thumbnails (0.90) → ready (1.0) — via the `runtime → service → repo` layering (the service passes an `on_rung_done` callback into `ffmpeg_runner.transcode_hls`)
 - The manifest is flipped to `ready` with `amplification_factor = rendition_bytes / source_bytes`
 
 ## Hardware-encoder policy
@@ -55,7 +57,7 @@ Only **HLS** is built (it is in the sample's name and drives the hls.js player).
 
 ## Verification
 - Test files: `services/api/tests/test_video_pipeline.py`
-- Required cases: ladder expands to rungs at/below the ceiling, amplification math (incl. divide-by-zero → None), manifest read/write round-trip, `run_transcode_job` flips to `ready` with renditions + amplification (FFmpeg mocked), a worker exception is recorded as `failed`. Unit tests **mock the FFmpeg subprocess** so `verify:api` stays credential-free and fast — a real end-to-end transcode is exercised later by the pipeline `verify` step
+- Required cases: ladder expands to rungs at/below the ceiling, amplification math (incl. divide-by-zero → None), manifest read/write round-trip, `run_transcode_job` flips to `ready` with renditions + amplification (FFmpeg mocked), the manifest's `progress` advances monotonically 0→1 with a `stage` label as the job runs, a worker exception is recorded as `failed`. Unit tests **mock the FFmpeg subprocess** so `verify:api` stays credential-free and fast — a real end-to-end transcode is exercised later by the pipeline `verify` step
 - Focused verify command: `pnpm test:api`
 - Default pre-PR verify command: `pnpm verify`
 - Full local verify command: `pnpm verify:full` when the E2E/live prerequisites in [Dev Workflows](../dev-workflows.md#commands) are available

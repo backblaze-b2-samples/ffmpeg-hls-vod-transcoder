@@ -145,7 +145,7 @@ def _write_src(key, local):
         fh.write(b"src")
 
 
-def _fake_transcode(source_path, out_dir, rungs, width, height):
+def _fake_transcode(source_path, out_dir, rungs, width, height, on_rung_done=None):
     hls = os.path.join(out_dir, "hls")
     outs = []
     for name, h, vk, ak in rungs:
@@ -158,6 +158,8 @@ def _fake_transcode(source_path, out_dir, rungs, width, height):
         with open(seg, "wb") as fh:
             fh.write(b"x" * 2000)
         outs.append(RungOutput(name, h, (h * 16) // 9, vk, ak, playlist, [seg]))
+        if on_rung_done is not None:
+            on_rung_done(len(outs), len(rungs))
     with open(os.path.join(hls, "master.m3u8"), "w") as fh:
         fh.write("#EXTM3U\n")
     return outs
@@ -187,6 +189,46 @@ def test_run_transcode_job_flips_manifest_to_ready(memory_store, monkeypatch):
     assert done.rendition_bytes > 0
     assert done.amplification_factor == compute_amplification(1000, done.rendition_bytes)
     assert done.duration_seconds == 12.0
+
+
+def test_run_transcode_job_reports_determinate_progress(memory_store, monkeypatch):
+    monkeypatch.setattr(video_store, "put_file", lambda path, key, ctype=None: os.path.getsize(path) if os.path.exists(path) else 100)
+    head = b"\x00\x00\x00\x18ftypmp42" + b"\x00" * 16
+    asset = video_service.create_video(
+        "/tmp/x.mp4", "clip.mp4", 1000, head, LadderPreset.P720, "Clip"
+    )
+    # A freshly-created (queued) manifest is not yet progressed.
+    seeded = video_service.get_video(asset.id)
+    assert seeded.progress == 0.0
+    assert seeded.stage == "queued"
+
+    # Record the progress value persisted on every manifest write during the job.
+    inner_write = video_store.write_json
+    progress_trace: list[float] = []
+
+    def _tracing_write(key, obj):
+        if key.endswith("asset.json"):
+            progress_trace.append(obj["progress"])
+        inner_write(key, obj)
+
+    monkeypatch.setattr(video_store, "write_json", _tracing_write)
+    monkeypatch.setattr(video_store, "download_to", _write_src)
+    monkeypatch.setattr(video_store, "delete_prefix", lambda prefix: 0)
+    monkeypatch.setattr(video_service.ffmpeg_runner, "probe", lambda p: ProbeResult(12.0, 1280, 720))
+    monkeypatch.setattr(video_service.ffmpeg_runner, "transcode_hls", _fake_transcode)
+    monkeypatch.setattr(video_service.sprite, "generate_sprite", lambda *a, **k: None)
+
+    video_service.run_transcode_job(asset.id)
+
+    done = video_service.get_video(asset.id)
+    assert done.status == TranscodeStatus.READY
+    assert done.progress == 1.0
+    assert done.stage == "ready"
+    # Progress advanced monotonically, passed through an intermediate value, and
+    # ended at 1.0 — a genuinely determinate signal, not a spinner.
+    assert progress_trace == sorted(progress_trace)
+    assert progress_trace[-1] == 1.0
+    assert any(0.0 < p < 1.0 for p in progress_trace)
 
 
 def test_run_transcode_job_records_failure(memory_store, monkeypatch):

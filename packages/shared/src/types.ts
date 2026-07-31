@@ -84,6 +84,10 @@ export interface VideoAsset {
   id: string;
   title: string;
   status: TranscodeStatus;
+  /** Determinate transcode progress 0..1 (0 until the job starts, 1 when ready). */
+  progress: number;
+  /** Coarse human-readable pipeline stage while transcoding (e.g. "encoding rendition 2/3"). */
+  stage: string | null;
   ladder: LadderPreset;
   source_key: string;
   source_filename: string;

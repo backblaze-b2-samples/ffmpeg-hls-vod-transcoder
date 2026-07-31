@@ -601,6 +601,11 @@
             ],
             "title": "Master Playlist Key"
           },
+          "progress": {
+            "default": 0.0,
+            "title": "Progress",
+            "type": "number"
+          },
           "rendition_bytes": {
             "default": 0,
             "title": "Rendition Bytes",
@@ -633,6 +638,17 @@
           "source_size_human": {
             "title": "Source Size Human",
             "type": "string"
+          },
+          "stage": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Stage"
           },
           "status": {
             "$ref": "#/components/schemas/TranscodeStatus"

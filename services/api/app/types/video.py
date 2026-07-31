@@ -70,6 +70,12 @@ class VideoAsset(BaseModel):
     id: str
     title: str
     status: TranscodeStatus
+    # Determinate transcode progress 0.0..1.0 and a coarse human-readable stage
+    # label (e.g. "encoding rendition 2/3"). Updated by the background worker as
+    # the job advances so the detail page can render a real progress bar instead
+    # of an indeterminate spinner. progress is 1.0 / stage "ready" once done.
+    progress: float = 0.0
+    stage: str | None = None
     ladder: LadderPreset
     source_key: str
     source_filename: str
