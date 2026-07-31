@@ -60,3 +60,67 @@ export interface UploadStats {
   uploads_today: number;
   total_downloads: number;
 }
+
+// --- VOD transcode pipeline -------------------------------------------------
+
+/** Quality-ladder preset: a ceiling that expands into every rung at or below
+ *  its height (e.g. "720p" -> 360p + 720p). */
+export type LadderPreset = "360p" | "720p" | "1080p";
+
+export type TranscodeStatus = "transcoding" | "ready" | "failed";
+
+export interface Rendition {
+  name: string;
+  height: number;
+  width: number;
+  video_kbps: number;
+  playlist_key: string;
+  segment_count: number;
+  size_bytes: number;
+  size_human: string;
+}
+
+export interface VideoAsset {
+  id: string;
+  title: string;
+  status: TranscodeStatus;
+  ladder: LadderPreset;
+  source_key: string;
+  source_filename: string;
+  source_size_bytes: number;
+  source_size_human: string;
+  duration_seconds: number | null;
+  width: number | null;
+  height: number | null;
+  renditions: Rendition[];
+  rendition_bytes: number;
+  rendition_bytes_human: string;
+  /** rendition_bytes / source_size_bytes — the headline write-amplification. */
+  amplification_factor: number | null;
+  master_playlist_key: string | null;
+  thumbnail_key: string | null;
+  created_at: string;
+  updated_at: string;
+  error: string | null;
+}
+
+/** Immediate response to POST /videos — the transcode runs in the background. */
+export interface IngestResponse {
+  id: string;
+  title: string;
+  status: TranscodeStatus;
+}
+
+export interface TranscodeStats {
+  total_videos: number;
+  ready_videos: number;
+  transcoding_videos: number;
+  failed_videos: number;
+  total_renditions: number;
+  source_bytes: number;
+  source_bytes_human: string;
+  rendition_bytes: number;
+  rendition_bytes_human: string;
+  amplification_factor: number | null;
+  recent: VideoAsset[];
+}

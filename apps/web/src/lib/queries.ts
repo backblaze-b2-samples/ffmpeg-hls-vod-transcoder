@@ -8,7 +8,9 @@ import {
 } from "@tanstack/react-query";
 import {
   ApiError,
+  createVideo,
   deleteFile,
+  deleteVideo,
   getDownloadUrl,
   getFileDetail,
   getFiles,
@@ -16,10 +18,19 @@ import {
   getHealth,
   getPreviewUrl,
   getUploadActivity,
+  getVideo,
+  getVideos,
+  getVideoStats,
+  renameVideo,
+  retranscodeVideo,
 } from "@/lib/api-client";
 import type {
   FileMetadata,
   FileMetadataDetail,
+  IngestResponse,
+  LadderPreset,
+  TranscodeStats,
+  VideoAsset,
 } from "@ffmpeg-hls-vod-transcoder/shared";
 
 // Single source of truth for query keys. Keep these tightly scoped so that
@@ -35,6 +46,9 @@ export const qk = {
   preview: (key: string) => [...qk.all, "preview", key] as const,
   detail: (key: string) => [...qk.all, "detail", key] as const,
   health: () => [...qk.all, "health"] as const,
+  videos: () => [...qk.all, "videos"] as const,
+  video: (id: string) => [...qk.all, "video", id] as const,
+  videoStats: () => [...qk.all, "video-stats"] as const,
 };
 
 export type Health = Awaited<ReturnType<typeof getHealth>>;
@@ -166,6 +180,97 @@ export function useDeleteFile() {
       // activity) against the server in the background.
       dropDeletedFileFromCache(qc, fileKey);
       qc.invalidateQueries({ queryKey: qk.all });
+    },
+  });
+}
+
+// --- Video (VOD) hooks ------------------------------------------------------
+
+export function useVideos({ enabled = true }: QueryGate = {}) {
+  return useQuery<VideoAsset[], ApiError>({
+    queryKey: qk.videos(),
+    queryFn: getVideos,
+    enabled,
+  });
+}
+
+/**
+ * One video's manifest. While it is still `transcoding` the query polls every
+ * 2s so the detail page flips to the player (or the error) the moment the
+ * background job finishes — then polling stops.
+ */
+export function useVideo(id: string | undefined, { enabled = true }: QueryGate = {}) {
+  return useQuery<VideoAsset, ApiError>({
+    queryKey: qk.video(id ?? ""),
+    queryFn: () => getVideo(id as string),
+    enabled: enabled && !!id,
+    refetchInterval: (query) =>
+      query.state.data?.status === "transcoding" ? 2000 : false,
+  });
+}
+
+export function useVideoStats({ enabled = true }: QueryGate = {}) {
+  return useQuery<TranscodeStats, ApiError>({
+    queryKey: qk.videoStats(),
+    queryFn: getVideoStats,
+    enabled,
+    // Cheap aggregate; refresh periodically so amplification tracks new jobs.
+    refetchInterval: 5000,
+  });
+}
+
+export interface CreateVideoInput {
+  file: File;
+  ladder: LadderPreset;
+  title: string;
+  onProgress?: (percent: number) => void;
+}
+
+export function useCreateVideo() {
+  const qc = useQueryClient();
+  return useMutation<IngestResponse, ApiError, CreateVideoInput>({
+    mutationFn: ({ file, ladder, title, onProgress }) =>
+      createVideo(file, ladder, title, onProgress),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: qk.videos() });
+      qc.invalidateQueries({ queryKey: qk.videoStats() });
+    },
+  });
+}
+
+export function useRenameVideo(id: string) {
+  const qc = useQueryClient();
+  return useMutation<VideoAsset, ApiError, string>({
+    mutationFn: (title) => renameVideo(id, title),
+    onSuccess: (asset) => {
+      qc.setQueryData(qk.video(id), asset);
+      qc.invalidateQueries({ queryKey: qk.videos() });
+    },
+  });
+}
+
+export function useRetranscodeVideo(id: string) {
+  const qc = useQueryClient();
+  return useMutation<IngestResponse, ApiError, LadderPreset>({
+    mutationFn: (ladder) => retranscodeVideo(id, ladder),
+    onSuccess: () => {
+      // Re-fetch immediately so the detail page shows the transcoding state and
+      // resumes polling.
+      qc.invalidateQueries({ queryKey: qk.video(id) });
+      qc.invalidateQueries({ queryKey: qk.videos() });
+      qc.invalidateQueries({ queryKey: qk.videoStats() });
+    },
+  });
+}
+
+export function useDeleteVideo() {
+  const qc = useQueryClient();
+  return useMutation<{ deleted: boolean; id: string; objects: number }, ApiError, string>({
+    mutationFn: (id) => deleteVideo(id),
+    onSuccess: (_data, id) => {
+      qc.removeQueries({ queryKey: qk.video(id) });
+      qc.invalidateQueries({ queryKey: qk.videos() });
+      qc.invalidateQueries({ queryKey: qk.videoStats() });
     },
   });
 }

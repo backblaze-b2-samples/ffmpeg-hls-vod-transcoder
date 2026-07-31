@@ -2,14 +2,17 @@ import type {
   DailyUploadCount,
   FileMetadata,
   FileMetadataDetail,
-  FileUploadResponse,
+  IngestResponse,
+  LadderPreset,
+  TranscodeStats,
   UploadStats,
+  VideoAsset,
 } from "@ffmpeg-hls-vod-transcoder/shared";
 
 export const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 type ApiClientRoute = {
-  method: "delete" | "get" | "post";
+  method: "delete" | "get" | "patch" | "post";
   path: string;
 };
 
@@ -27,8 +30,26 @@ export const API_CLIENT_ROUTES = {
   legacyFilePreview: { method: "get", path: "/files/{key}/preview" },
   legacyFileMetadata: { method: "get", path: "/files/{key}" },
   legacyFileDelete: { method: "delete", path: "/files/{key}" },
-  upload: { method: "post", path: "/upload" },
+  // Video (VOD) routes. Paths mirror the OpenAPI templates ({video_id}, {path})
+  // so the contract test can match them 1:1.
+  videos: { method: "get", path: "/videos" },
+  videoCreate: { method: "post", path: "/videos" },
+  videoStats: { method: "get", path: "/videos/stats" },
+  video: { method: "get", path: "/videos/{video_id}" },
+  videoRename: { method: "patch", path: "/videos/{video_id}" },
+  videoDelete: { method: "delete", path: "/videos/{video_id}" },
+  videoRetranscode: { method: "post", path: "/videos/{video_id}/retranscode" },
 } as const satisfies Record<string, ApiClientRoute>;
+
+/** Absolute URL to the master HLS playlist — fed to hls.js / native <video>. */
+export function hlsMasterUrl(videoId: string): string {
+  return `${API_BASE}/videos/${encodeURIComponent(videoId)}/hls/master.m3u8`;
+}
+
+/** Absolute URL to a video's sprite thumbnail — used in <img>. */
+export function thumbnailUrl(videoId: string): string {
+  return `${API_BASE}/videos/${encodeURIComponent(videoId)}/thumbnail`;
+}
 
 /** Typed API error with HTTP status code for caller-side branching. */
 export class ApiError extends Error {
@@ -231,14 +252,72 @@ export async function deleteFile(key: string) {
   );
 }
 
-export function uploadFile(
+// --- Video (VOD) client -----------------------------------------------------
+
+function videoPath(template: string, videoId: string): string {
+  return template.replace("{video_id}", encodeURIComponent(videoId));
+}
+
+export async function getVideos() {
+  return apiFetch<VideoAsset[]>(API_CLIENT_ROUTES.videos.path);
+}
+
+export async function getVideoStats() {
+  return apiFetch<TranscodeStats>(API_CLIENT_ROUTES.videoStats.path);
+}
+
+export async function getVideo(videoId: string) {
+  return apiFetch<VideoAsset>(
+    videoPath(API_CLIENT_ROUTES.video.path, videoId)
+  );
+}
+
+export async function renameVideo(videoId: string, title: string) {
+  return apiFetch<VideoAsset>(
+    videoPath(API_CLIENT_ROUTES.videoRename.path, videoId),
+    {
+      method: API_CLIENT_ROUTES.videoRename.method.toUpperCase(),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ title }),
+    }
+  );
+}
+
+export async function deleteVideo(videoId: string) {
+  return apiFetch<{ deleted: boolean; id: string; objects: number }>(
+    videoPath(API_CLIENT_ROUTES.videoDelete.path, videoId),
+    { method: API_CLIENT_ROUTES.videoDelete.method.toUpperCase() }
+  );
+}
+
+export async function retranscodeVideo(videoId: string, ladder: LadderPreset) {
+  return apiFetch<IngestResponse>(
+    videoPath(API_CLIENT_ROUTES.videoRetranscode.path, videoId),
+    {
+      method: API_CLIENT_ROUTES.videoRetranscode.method.toUpperCase(),
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ladder }),
+    }
+  );
+}
+
+/**
+ * Upload a source video (multipart) and queue transcoding. Uses XHR, not fetch,
+ * so the dropzone can show real upload progress — the transcode itself runs in
+ * the background and is observed by polling GET /videos/{id}.
+ */
+export function createVideo(
   file: File,
+  ladder: LadderPreset,
+  title: string,
   onProgress?: (percent: number) => void
-): Promise<FileUploadResponse> {
+): Promise<IngestResponse> {
   return new Promise((resolve, reject) => {
     const xhr = new XMLHttpRequest();
     const formData = new FormData();
     formData.append("file", file);
+    formData.append("ladder", ladder);
+    formData.append("title", title);
 
     xhr.upload.addEventListener("progress", (e) => {
       if (e.lengthComputable && onProgress) {
@@ -252,21 +331,21 @@ export function uploadFile(
       } else {
         try {
           const body = JSON.parse(xhr.responseText);
-          reject(new ApiError(body.detail || `Upload failed: ${xhr.status}`, xhr.status));
+          reject(new ApiError(body.detail || `Ingest failed: ${xhr.status}`, xhr.status));
         } catch {
-          reject(new ApiError(`Upload failed: ${xhr.status}`, xhr.status));
+          reject(new ApiError(`Ingest failed: ${xhr.status}`, xhr.status));
         }
       }
     });
 
     xhr.addEventListener("error", () => reject(networkError()));
     xhr.addEventListener("abort", () =>
-      reject(new ApiError("Upload aborted", 0)),
+      reject(new ApiError("Ingest aborted", 0)),
     );
 
     xhr.open(
-      API_CLIENT_ROUTES.upload.method.toUpperCase(),
-      `${API_BASE}${API_CLIENT_ROUTES.upload.path}`
+      API_CLIENT_ROUTES.videoCreate.method.toUpperCase(),
+      `${API_BASE}${API_CLIENT_ROUTES.videoCreate.path}`
     );
     xhr.send(formData);
   });

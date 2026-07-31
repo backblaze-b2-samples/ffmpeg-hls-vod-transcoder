@@ -49,9 +49,15 @@ const OPENAPI_METHODS = new Set<RouteMethod>([
   "trace",
 ]);
 
-// Prometheus metrics are intentionally scraped server-side, not called by the
-// app shell. Add future backend-only operations here deliberately.
-const SERVER_ONLY_OPERATIONS = new Set(["get /metrics"]);
+// Operations hit directly by the browser (not the typed api-client): Prometheus
+// metrics are scraped server-side; the HLS proxy is fetched by hls.js / native
+// <video>, and the thumbnail sprite by an <img>. Add backend-only operations
+// here deliberately.
+const SERVER_ONLY_OPERATIONS = new Set([
+  "get /metrics",
+  "get /videos/{video_id}/hls/{path}",
+  "get /videos/{video_id}/thumbnail",
+]);
 
 function operationKey(method: string, path: string) {
   return `${method} ${path}`;

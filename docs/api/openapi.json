@@ -1,18 +1,27 @@
 {
   "components": {
     "schemas": {
-      "Body_upload_upload_post": {
+      "Body_ingest_video_videos_post": {
         "properties": {
           "file": {
             "contentMediaType": "application/octet-stream",
             "title": "File",
+            "type": "string"
+          },
+          "ladder": {
+            "$ref": "#/components/schemas/LadderPreset",
+            "default": "720p"
+          },
+          "title": {
+            "default": "",
+            "title": "Title",
             "type": "string"
           }
         },
         "required": [
           "file"
         ],
-        "title": "Body_upload_upload_post",
+        "title": "Body_ingest_video_videos_post",
         "type": "object"
       },
       "DailyUploadCount": {
@@ -248,66 +257,6 @@
         "title": "FileMetadataDetail",
         "type": "object"
       },
-      "FileUploadResponse": {
-        "properties": {
-          "content_type": {
-            "title": "Content Type",
-            "type": "string"
-          },
-          "filename": {
-            "title": "Filename",
-            "type": "string"
-          },
-          "key": {
-            "title": "Key",
-            "type": "string"
-          },
-          "metadata": {
-            "anyOf": [
-              {
-                "$ref": "#/components/schemas/FileMetadataDetail"
-              },
-              {
-                "type": "null"
-              }
-            ]
-          },
-          "size_bytes": {
-            "title": "Size Bytes",
-            "type": "integer"
-          },
-          "size_human": {
-            "title": "Size Human",
-            "type": "string"
-          },
-          "uploaded_at": {
-            "format": "date-time",
-            "title": "Uploaded At",
-            "type": "string"
-          },
-          "url": {
-            "anyOf": [
-              {
-                "type": "string"
-              },
-              {
-                "type": "null"
-              }
-            ],
-            "title": "Url"
-          }
-        },
-        "required": [
-          "key",
-          "filename",
-          "size_bytes",
-          "size_human",
-          "content_type",
-          "uploaded_at"
-        ],
-        "title": "FileUploadResponse",
-        "type": "object"
-      },
       "HTTPValidationError": {
         "properties": {
           "detail": {
@@ -320,6 +269,195 @@
         },
         "title": "HTTPValidationError",
         "type": "object"
+      },
+      "IngestResponse": {
+        "description": "Immediate response to `POST /videos` \u2014 the transcode runs in the\nbackground, so this only confirms the source landed and a job was queued.",
+        "properties": {
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TranscodeStatus"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status"
+        ],
+        "title": "IngestResponse",
+        "type": "object"
+      },
+      "LadderPreset": {
+        "description": "Finite quality-ladder presets (a *ceiling*, not a single rendition).\n\nA preset expands into every rung at or below its height, so \"720p\" yields\n360p + 720p and \"1080p\" yields 360p + 720p + 1080p. The Ingest and\nRe-transcode forms present these as a `Select` (finite options).",
+        "enum": [
+          "360p",
+          "720p",
+          "1080p"
+        ],
+        "title": "LadderPreset",
+        "type": "string"
+      },
+      "RenameRequest": {
+        "properties": {
+          "title": {
+            "maxLength": 200,
+            "minLength": 1,
+            "title": "Title",
+            "type": "string"
+          }
+        },
+        "required": [
+          "title"
+        ],
+        "title": "RenameRequest",
+        "type": "object"
+      },
+      "Rendition": {
+        "properties": {
+          "height": {
+            "title": "Height",
+            "type": "integer"
+          },
+          "name": {
+            "title": "Name",
+            "type": "string"
+          },
+          "playlist_key": {
+            "title": "Playlist Key",
+            "type": "string"
+          },
+          "segment_count": {
+            "title": "Segment Count",
+            "type": "integer"
+          },
+          "size_bytes": {
+            "title": "Size Bytes",
+            "type": "integer"
+          },
+          "size_human": {
+            "title": "Size Human",
+            "type": "string"
+          },
+          "video_kbps": {
+            "title": "Video Kbps",
+            "type": "integer"
+          },
+          "width": {
+            "title": "Width",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "name",
+          "height",
+          "width",
+          "video_kbps",
+          "playlist_key",
+          "segment_count",
+          "size_bytes",
+          "size_human"
+        ],
+        "title": "Rendition",
+        "type": "object"
+      },
+      "RetranscodeRequest": {
+        "properties": {
+          "ladder": {
+            "$ref": "#/components/schemas/LadderPreset"
+          }
+        },
+        "required": [
+          "ladder"
+        ],
+        "title": "RetranscodeRequest",
+        "type": "object"
+      },
+      "TranscodeStatsResponse": {
+        "properties": {
+          "amplification_factor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amplification Factor"
+          },
+          "failed_videos": {
+            "title": "Failed Videos",
+            "type": "integer"
+          },
+          "ready_videos": {
+            "title": "Ready Videos",
+            "type": "integer"
+          },
+          "recent": {
+            "items": {
+              "$ref": "#/components/schemas/VideoAsset"
+            },
+            "title": "Recent",
+            "type": "array"
+          },
+          "rendition_bytes": {
+            "title": "Rendition Bytes",
+            "type": "integer"
+          },
+          "rendition_bytes_human": {
+            "title": "Rendition Bytes Human",
+            "type": "string"
+          },
+          "source_bytes": {
+            "title": "Source Bytes",
+            "type": "integer"
+          },
+          "source_bytes_human": {
+            "title": "Source Bytes Human",
+            "type": "string"
+          },
+          "total_renditions": {
+            "title": "Total Renditions",
+            "type": "integer"
+          },
+          "total_videos": {
+            "title": "Total Videos",
+            "type": "integer"
+          },
+          "transcoding_videos": {
+            "title": "Transcoding Videos",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_videos",
+          "ready_videos",
+          "transcoding_videos",
+          "failed_videos",
+          "total_renditions",
+          "source_bytes",
+          "source_bytes_human",
+          "rendition_bytes",
+          "rendition_bytes_human",
+          "amplification_factor"
+        ],
+        "title": "TranscodeStatsResponse",
+        "type": "object"
+      },
+      "TranscodeStatus": {
+        "enum": [
+          "transcoding",
+          "ready",
+          "failed"
+        ],
+        "title": "TranscodeStatus",
+        "type": "string"
       },
       "UploadStats": {
         "properties": {
@@ -393,12 +531,164 @@
         ],
         "title": "ValidationError",
         "type": "object"
+      },
+      "VideoAsset": {
+        "properties": {
+          "amplification_factor": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Amplification Factor"
+          },
+          "created_at": {
+            "format": "date-time",
+            "title": "Created At",
+            "type": "string"
+          },
+          "duration_seconds": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Duration Seconds"
+          },
+          "error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Error"
+          },
+          "height": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Height"
+          },
+          "id": {
+            "title": "Id",
+            "type": "string"
+          },
+          "ladder": {
+            "$ref": "#/components/schemas/LadderPreset"
+          },
+          "master_playlist_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Master Playlist Key"
+          },
+          "rendition_bytes": {
+            "default": 0,
+            "title": "Rendition Bytes",
+            "type": "integer"
+          },
+          "rendition_bytes_human": {
+            "default": "0 B",
+            "title": "Rendition Bytes Human",
+            "type": "string"
+          },
+          "renditions": {
+            "items": {
+              "$ref": "#/components/schemas/Rendition"
+            },
+            "title": "Renditions",
+            "type": "array"
+          },
+          "source_filename": {
+            "title": "Source Filename",
+            "type": "string"
+          },
+          "source_key": {
+            "title": "Source Key",
+            "type": "string"
+          },
+          "source_size_bytes": {
+            "title": "Source Size Bytes",
+            "type": "integer"
+          },
+          "source_size_human": {
+            "title": "Source Size Human",
+            "type": "string"
+          },
+          "status": {
+            "$ref": "#/components/schemas/TranscodeStatus"
+          },
+          "thumbnail_key": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Thumbnail Key"
+          },
+          "title": {
+            "title": "Title",
+            "type": "string"
+          },
+          "updated_at": {
+            "format": "date-time",
+            "title": "Updated At",
+            "type": "string"
+          },
+          "width": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Width"
+          }
+        },
+        "required": [
+          "id",
+          "title",
+          "status",
+          "ladder",
+          "source_key",
+          "source_filename",
+          "source_size_bytes",
+          "source_size_human",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "VideoAsset",
+        "type": "object"
       }
     }
   },
   "info": {
-    "description": "File upload and management API backed by Backblaze B2",
-    "title": "OSS Starter Kit API",
+    "description": "Self-hosted VOD transcoding pipeline \u2014 FFmpeg HLS ladders on Backblaze B2",
+    "title": "FFmpeg HLS VOD Transcoder API",
     "version": "0.1.0"
   },
   "openapi": "3.1.0",
@@ -933,14 +1223,37 @@
         ]
       }
     },
-    "/upload": {
+    "/videos": {
+      "get": {
+        "operationId": "list_videos_endpoint_videos_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "$ref": "#/components/schemas/VideoAsset"
+                  },
+                  "title": "Response List Videos Endpoint Videos Get",
+                  "type": "array"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "List Videos Endpoint",
+        "tags": [
+          "videos"
+        ]
+      },
       "post": {
-        "operationId": "upload_upload_post",
+        "operationId": "ingest_video_videos_post",
         "requestBody": {
           "content": {
             "multipart/form-data": {
               "schema": {
-                "$ref": "#/components/schemas/Body_upload_upload_post"
+                "$ref": "#/components/schemas/Body_ingest_video_videos_post"
               }
             }
           },
@@ -951,7 +1264,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/FileUploadResponse"
+                  "$ref": "#/components/schemas/IngestResponse"
                 }
               }
             },
@@ -968,9 +1281,303 @@
             "description": "Validation Error"
           }
         },
-        "summary": "Upload",
+        "summary": "Ingest Video",
         "tags": [
-          "upload"
+          "videos"
+        ]
+      }
+    },
+    "/videos/stats": {
+      "get": {
+        "operationId": "video_stats_endpoint_videos_stats_get",
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/TranscodeStatsResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          }
+        },
+        "summary": "Video Stats Endpoint",
+        "tags": [
+          "videos"
+        ]
+      }
+    },
+    "/videos/{video_id}": {
+      "delete": {
+        "operationId": "delete_video_endpoint_videos__video_id__delete",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "video_id",
+            "required": true,
+            "schema": {
+              "title": "Video Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Delete Video Endpoint",
+        "tags": [
+          "videos"
+        ]
+      },
+      "get": {
+        "operationId": "get_video_endpoint_videos__video_id__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "video_id",
+            "required": true,
+            "schema": {
+              "title": "Video Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoAsset"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Get Video Endpoint",
+        "tags": [
+          "videos"
+        ]
+      },
+      "patch": {
+        "operationId": "rename_video_endpoint_videos__video_id__patch",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "video_id",
+            "required": true,
+            "schema": {
+              "title": "Video Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RenameRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/VideoAsset"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Rename Video Endpoint",
+        "tags": [
+          "videos"
+        ]
+      }
+    },
+    "/videos/{video_id}/hls/{path}": {
+      "get": {
+        "description": "Stream an HLS playlist/segment straight from B2 with a 1:1\nrequest-path -> B2-key map, so relative segment references resolve with no\nplaylist rewriting. Hit directly by hls.js / native <video>, not the\ntyped api-client \u2014 so it lives in SERVER_ONLY_OPERATIONS.",
+        "operationId": "hls_proxy_endpoint_videos__video_id__hls__path__get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "video_id",
+            "required": true,
+            "schema": {
+              "title": "Video Id",
+              "type": "string"
+            }
+          },
+          {
+            "in": "path",
+            "name": "path",
+            "required": true,
+            "schema": {
+              "title": "Path",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Hls Proxy Endpoint",
+        "tags": [
+          "videos"
+        ]
+      }
+    },
+    "/videos/{video_id}/retranscode": {
+      "post": {
+        "operationId": "retranscode_endpoint_videos__video_id__retranscode_post",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "video_id",
+            "required": true,
+            "schema": {
+              "title": "Video Id",
+              "type": "string"
+            }
+          }
+        ],
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/RetranscodeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/IngestResponse"
+                }
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Retranscode Endpoint",
+        "tags": [
+          "videos"
+        ]
+      }
+    },
+    "/videos/{video_id}/thumbnail": {
+      "get": {
+        "description": "Stream the sprite sheet (scrub-preview thumbnails). Hit directly by an\n<img>, so it is a SERVER_ONLY_OPERATION too.",
+        "operationId": "thumbnail_endpoint_videos__video_id__thumbnail_get",
+        "parameters": [
+          {
+            "in": "path",
+            "name": "video_id",
+            "required": true,
+            "schema": {
+              "title": "Video Id",
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            },
+            "description": "Successful Response"
+          },
+          "422": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            },
+            "description": "Validation Error"
+          }
+        },
+        "summary": "Thumbnail Endpoint",
+        "tags": [
+          "videos"
         ]
       }
     }

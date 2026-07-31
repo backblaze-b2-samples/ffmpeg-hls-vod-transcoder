@@ -18,7 +18,7 @@ from fastapi.middleware.cors import CORSMiddleware  # noqa: E402
 from starlette.middleware.base import BaseHTTPMiddleware  # noqa: E402
 
 from app.config import settings  # noqa: E402
-from app.runtime import files, health, metrics, ratelimit  # noqa: E402
+from app.runtime import files, health, metrics, ratelimit, videos  # noqa: E402
 from app.service.files import warm_listing_cache  # noqa: E402
 
 # --- Startup validation ---
@@ -161,5 +161,6 @@ app.add_middleware(
 )
 
 app.include_router(health.router, tags=["health"])
+app.include_router(videos.router, tags=["videos"])
 app.include_router(files.router, tags=["files"])
 app.include_router(metrics.router, tags=["metrics"])
