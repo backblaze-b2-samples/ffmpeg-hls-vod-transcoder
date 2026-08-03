@@ -16,6 +16,24 @@ A self-hosted **video-on-demand (VOD) transcoding pipeline** backed by **[Backbl
 
 > **FFmpeg is bundled.** The binary comes from the `imageio-ffmpeg` Python package (a static build that includes `libx264` + AAC), so a fresh clone transcodes with **no** system `brew/apt install ffmpeg`. Set `FFMPEG_BINARY` to point at another build if you prefer.
 
+## What it looks like
+
+**Dashboard** — transcode fleet metrics (videos, renditions, source → rendition bytes, and the headline write-amplification factor) with a recent-transcodes table.
+
+![Dashboard with transcode metrics and recent transcodes](docs/images/dashboard.png)
+
+**Ingest** — drag-and-drop a source video, pick an HLS quality ladder, and queue a local FFmpeg transcode to B2.
+
+![Ingest form with dropzone and quality-ladder options](docs/images/ingest.png)
+
+**Videos** — the asset library grid scoped to the `videos/` prefix, each card showing its ladder, rendition count, and storage amplification.
+
+![Video library grid of transcoded assets](docs/images/videos-library.png)
+
+**Video detail** — adaptive hls.js playback with the per-video write-amplification breakdown and the full HLS rendition ladder.
+
+![Video detail page with hls.js player, write amplification, and renditions](docs/images/video-detail.png)
+
 ## How it works
 
 ```
